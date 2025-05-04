@@ -14,21 +14,69 @@
      * Hauptfunktion zur Initialisierung des JetEngine Generators
      */
     function initJetEngineGenerator() {
+        console.log('Initialisiere JetEngine Generator mit Dokumentbereit-Status:', document.readyState);
+        
         // Nur auf den relevanten Admin-Seiten ausführen
         if (!isSmartSliderPage()) {
+            console.log('Keine Smart Slider Seite erkannt, breche Initialisierung ab');
             return;
         }
 
         console.log('JetEngine SmartSlider Generator geladen');
         
-        // Generator-Typ-spezifische Initialisierung
-        initGeneratorTypes();
+        // Verfügbare Smart Slider DOM-Elemente prüfen
+        console.log('Verfügbare Smart Slider DOM-Elemente:', {
+            metaName: $('#generatormeta_name').length,
+            metaValue: $('#generatormeta_value').length,
+            metaKey: $('#generatormeta_key').length,
+            imageMetaField: $('#generatorimage_meta').length
+        });
         
         // Event-Listener hinzufügen
         attachEventListeners();
         
-        // UI-Verbesserungen anwenden
-        enhanceUserInterface();
+        // DIREKTE META-FELD-VERBESSERUNG: Sofort starten ohne auf Events zu warten
+        var postType = getPostTypeFromUrl();
+        if (postType) {
+            console.log('Post-Typ aus URL erkannt:', postType);
+            loadMetaFieldsAndCreateDropdowns(postType);
+        } else {
+            console.log('Kein Post-Typ in URL gefunden, versuche Generator-Typ zu ermitteln');
+            var generatorType = getCurrentGeneratorType();
+            if (generatorType && generatorType.indexOf('jetengine') === 0) {
+                const postTypeMatch = generatorType.match(/post_type_([a-zA-Z0-9_-]+)/);
+                if (postTypeMatch && postTypeMatch[1]) {
+                    postType = postTypeMatch[1];
+                    console.log('Post-Typ aus Generator-Typ erkannt:', postType);
+                    loadMetaFieldsAndCreateDropdowns(postType);
+                } else {
+                    console.log('Verwende Fallback Post-Typ');
+                    loadMetaFieldsAndCreateDropdowns('post'); // Fallback: Standard-Post-Typ verwenden
+                }
+            } else {
+                console.log('Verwende Fallback Post-Typ');
+                loadMetaFieldsAndCreateDropdowns('post'); // Fallback: Standard-Post-Typ verwenden
+            }
+        }
+    }
+
+    /**
+     * Extrahiert den Post-Typ aus der URL
+     * @return {string|null} Post-Typ oder null
+     */
+    function getPostTypeFromUrl() {
+        var match = window.location.href.match(/post_type_([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return match[1];
+        }
+        
+        // Alternative Methode: Versuche Generator-Parameter zu extrahieren
+        match = window.location.href.match(/generator=post_type_([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return match[1];
+        }
+        
+        return null;
     }
 
     /**
@@ -37,174 +85,316 @@
      */
     function isSmartSliderPage() {
         // Prüfe URL-Parameter für Smart Slider
-        return window.location.href.indexOf('smart-slider') > -1 || 
+        var isSmartSliderPage = window.location.href.indexOf('smart-slider') > -1 || 
                $('body').hasClass('toplevel_page_smart-slider3') ||
                $('body').hasClass('smart-slider3_page_smart-slider3');
+        
+        console.log('Smart Slider Seite erkannt:', isSmartSliderPage);
+        return isSmartSliderPage;
     }
 
     /**
-     * Initialisiert spezifische Funktionen für verschiedene Generator-Typen
+     * Event-Listener hinzufügen
      */
-    function initGeneratorTypes() {
-        // Warte auf Smart Slider Events
+    function attachEventListeners() {
+        console.log('Füge Event-Listener hinzu');
+        
+        // Smart Slider Generator-Auswahl-Event abfangen
         $(document).on('SmartSlider3GeneratorSelected', function(e, generatorType) {
+            console.log('SmartSlider3GeneratorSelected Event empfangen mit Typ:', generatorType);
+            
             if (generatorType && generatorType.indexOf('jetengine') === 0) {
                 console.log('JetEngine Generator ausgewählt:', generatorType);
                 
-                // Je nach Generator-Typ unterschiedliche Initialisierungen
-                if (generatorType.indexOf('post_type') === 0) {
-                    initPostTypeGenerator();
-                } else if (generatorType.indexOf('cct_') === 0) {
-                    initContentTypeGenerator();
-                } else if (generatorType.indexOf('relation_') === 0) {
-                    initRelationGenerator();
+                // Generator-Typ extrahieren
+                const postTypeMatch = generatorType.match(/post_type_([a-zA-Z0-9_-]+)/);
+                if (postTypeMatch && postTypeMatch[1]) {
+                    const postType = postTypeMatch[1];
+                    console.log('Post-Typ erkannt:', postType);
+                    
+                    // Meta-Felder laden und Dropdown-Menüs erstellen
+                    loadMetaFieldsAndCreateDropdowns(postType);
+                } else {
+                    console.log('Konnte keinen Post-Typ aus generatorType extrahieren:', generatorType);
                 }
+            } else {
+                console.log('Ausgewählter Generator ist kein JetEngine Generator');
+            }
+        });
+        
+        // Auch bei Generator-Einstellungsänderungen prüfen
+        $(document).on('SmartSlider3GeneratorSettingsChanged', function(e, settings) {
+            console.log('SmartSlider3GeneratorSettingsChanged Event empfangen mit Einstellungen:', settings);
+            
+            // Verzögerung hinzufügen, um sicherzustellen, dass die UI aktualisiert wurde
+            setTimeout(checkAndEnhanceFields, 500);
+        });
+    }
+    
+    /**
+     * Meta-Felder laden und Dropdown-Menüs erstellen
+     * 
+     * @param {string} postType Post-Typ
+     */
+    function loadMetaFieldsAndCreateDropdowns(postType) {
+        console.log('Lade Meta-Felder für Post-Typ:', postType);
+        
+        // Meta-Felder über AJAX laden
+        $.ajax({
+            url: jetengineSmartSliderData.ajaxurl || ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'jetengine_smartslider_get_meta_fields',
+                nonce: jetengineSmartSliderData.nonce,
+                post_type: postType,
+                generator_type: 'post_type_' + postType
+            },
+            success: function(response) {
+                console.log('Meta-Felder AJAX-Antwort erhalten:', response);
                 
-                // Gemeinsame Initialisierung für alle Generator-Typen
-                initCommonGeneratorFields();
+                if (response.success && response.data && response.data.fields) {
+                    // Felder verfügbar machen
+                    window.jetEngineAvailableFields = response.data.fields;
+                    console.log('Verfügbare Felder geladen:', window.jetEngineAvailableFields);
+                    
+                    // Dropdown-Menüs erstellen
+                    enhanceMetaFields();
+                } else {
+                    console.error('Ungültige oder leere AJAX-Antwort:', response);
+                    
+                    // Fallback: Versuche mit Dummy-Daten
+                    console.log('Verwende Fallback-Daten für Meta-Felder');
+                    window.jetEngineAvailableFields = getFallbackFields();
+                    enhanceMetaFields();
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Fehler beim Laden der Meta-Felder:', status, error);
+                console.log('AJAX-Anfrage-Informationen:', {
+                    url: jetengineSmartSliderData.ajaxurl || ajaxurl,
+                    action: 'jetengine_smartslider_get_meta_fields',
+                    nonce: jetengineSmartSliderData.nonce,
+                    post_type: postType
+                });
                 
-                // Nach kurzer Verzögerung Meta-Felder verbessern
-                setTimeout(enhanceMetaFields, 500);
+                // Fallback: Versuche mit Dummy-Daten
+                console.log('Verwende Fallback-Daten für Meta-Felder');
+                window.jetEngineAvailableFields = getFallbackFields();
+                enhanceMetaFields();
             }
         });
     }
-
+    
     /**
-     * Verbessert die Meta-Feld-Eingabefelder mit Dropdown-Menüs
+     * Liefert Fallback-Felder, falls AJAX-Anfrage fehlschlägt
+     * @return {array} Fallback-Felder
+     */
+    function getFallbackFields() {
+        return [
+            { name: 'tour_price', title: 'Tour Preis', type: 'number' },
+            { name: 'tour_date', title: 'Tour Datum', type: 'date' },
+            { name: 'tour_image', title: 'Tour Bild', type: 'image' },
+            { name: 'tour_gallery', title: 'Tour Galerie', type: 'gallery' },
+            { name: 'tour_description', title: 'Tour Beschreibung', type: 'textarea' }
+        ];
+    }
+    
+    /**
+     * Prüft und verbessert die Felder, wenn die UI aktualisiert wird
+     */
+    function checkAndEnhanceFields() {
+        console.log('Prüfe und verbessere Felder. jetEngineAvailableFields verfügbar:', !!window.jetEngineAvailableFields);
+        
+        if (window.jetEngineAvailableFields) {
+            enhanceMetaFields();
+        } else {
+            console.log('Keine Meta-Felder geladen, überspringe Feldverbesserung');
+            
+            // Versuche dennoch die Feldstruktur zu analysieren
+            analyzeFieldStructure();
+        }
+    }
+    
+    /**
+     * Analysiert die Feldstruktur zur Fehlerbehebung
+     */
+    function analyzeFieldStructure() {
+        console.log('Analysiere Feldstruktur zur Fehlerbehebung');
+        
+        // Liste aller Meta-Eingabefelder
+        var metaFields = $('[id^="generatormeta_"], [id="generatorimage_meta"]');
+        console.log('Gefundene Meta-Felder:', metaFields.length);
+        
+        metaFields.each(function() {
+            var $field = $(this);
+            console.log('Meta-Feld gefunden:', {
+                id: $field.attr('id'),
+                name: $field.attr('name'),
+                value: $field.val(),
+                type: $field.attr('type')
+            });
+        });
+    }
+    
+    /**
+     * Verbessert die Meta-Felder mit Dropdown-Menüs
      */
     function enhanceMetaFields() {
-        // Meta-Feld-Name für Filter
-        var $metaNameField = $('label[for="generatormeta_filter_name"]').closest('.n2_field').find('input');
+        console.log('Starte Verbesserung der Meta-Felder');
+        
+        // Aktualisierte Feldnamen basierend auf der DOM-Analyse
+        var $metaNameField = $('#generatormeta_name');
+        console.log('Meta-Name-Feld gefunden:', $metaNameField.length, 'mit Wert:', $metaNameField.val());
+        
+        var $metaKeyField = $('#generatormeta_key');
+        console.log('Meta-Key-Feld gefunden:', $metaKeyField.length, 'mit Wert:', $metaKeyField.val());
+        
+        var $imageMetaField = $('#generatorimage_meta');
+        console.log('Bild-Meta-Feld gefunden:', $imageMetaField.length, 'mit Wert:', $imageMetaField.val());
+        
+        // Meta-Feld für Filter
         if ($metaNameField.length && !$metaNameField.data('enhanced')) {
             createMetaFieldDropdown($metaNameField, 'filter');
             $metaNameField.data('enhanced', true);
         }
         
+        // Meta-Feld für Sortierung
+        if ($metaKeyField.length && !$metaKeyField.data('enhanced')) {
+            createMetaFieldDropdown($metaKeyField, 'order');
+            $metaKeyField.data('enhanced', true);
+        }
+        
         // Meta-Feld für Bilder
-        var $imageMetaField = $('label[for="generatormeta_image_meta"]').closest('.n2_field').find('input');
         if ($imageMetaField.length && !$imageMetaField.data('enhanced')) {
             createMetaFieldDropdown($imageMetaField, 'image');
             $imageMetaField.data('enhanced', true);
         }
         
-        // Meta-Feld für Sortierung
-        var $orderMetaField = $('label[for="generatormeta_order_key"]').closest('.n2_field').find('input');
-        if ($orderMetaField.length && !$orderMetaField.data('enhanced')) {
-            createMetaFieldDropdown($orderMetaField, 'order');
-            $orderMetaField.data('enhanced', true);
-        }
+        console.log('Meta-Feldverbesserung abgeschlossen');
     }
     
     /**
      * Erstellt ein Dropdown-Menü für Meta-Felder
      * 
      * @param {jQuery} $field Das zu verbessernde Eingabefeld
-     * @param {string} fieldType Typ des Feldes (filter, image, order)
+     * @param {string} fieldType Feldtyp (filter, image, order)
      */
     function createMetaFieldDropdown($field, fieldType) {
-        // Meta-Felder laden
-        loadMetaFields(function(fields) {
-            // Aktuellen Wert speichern
-            var currentValue = $field.val();
+        console.log('Erstelle Dropdown für Feld:', $field.attr('id'), 'mit Typ:', fieldType);
+        
+        // Felder vorbereiten
+        var fields = window.jetEngineAvailableFields || [];
+        
+        // Aktuellen Wert speichern
+        var currentValue = $field.val();
+        console.log('Aktueller Feld-Wert:', currentValue);
+        
+        // Container erstellen
+        var $container = $('<div class="jetengine-meta-dropdown-container"></div>');
+        
+        // Select-Element erstellen
+        var $select = $('<select class="jetengine-meta-dropdown"></select>');
+        
+        // Platzhalter-Option
+        $select.append('<option value="">-- Meta-Feld auswählen --</option>');
+        
+        // Optionsgruppen erstellen
+        var $jetGroup = $('<optgroup label="JetEngine Felder"></optgroup>');
+        var $otherGroup = $('<optgroup label="Andere Felder"></optgroup>');
+        
+        // Felder sortieren
+        var jetFields = [];
+        var otherFields = [];
+        
+        $.each(fields, function(i, field) {
+            var name = field.name || field.key;
+            var title = field.title || field.label || name;
             
-            // Container erstellen
-            var $container = $('<div class="jetengine-meta-dropdown-container"></div>');
-            
-            // Select-Element erstellen
-            var $select = $('<select class="jetengine-meta-dropdown"></select>');
-            
-            // Platzhalter-Option
-            $select.append('<option value="">-- Meta-Feld auswählen --</option>');
-            
-            // Optionsgruppen erstellen
-            var $jetGroup = $('<optgroup label="JetEngine Felder"></optgroup>');
-            var $otherGroup = $('<optgroup label="Andere Felder"></optgroup>');
-            
-            // Felder sortieren
-            var jetFields = [];
-            var otherFields = [];
-            
-            $.each(fields, function(i, field) {
-                var name = field.name || field.key;
-                var title = field.title || field.label || name;
-                
-                // Nur Bild-Felder für Bild-Dropdown anzeigen
-                if (fieldType === 'image' && !isImageField(field)) {
-                    return; // Überspringen
-                }
-                
-                // JetEngine-Felder oder andere
-                if (name.indexOf('_jet_') === 0 || name.indexOf('jet_') === 0) {
-                    jetFields.push({name: name, title: title});
-                } else {
-                    otherFields.push({name: name, title: title});
-                }
-            });
-            
-            // JetEngine-Felder hinzufügen
-            if (jetFields.length > 0) {
-                $.each(jetFields, function(i, field) {
-                    var $option = $('<option value="' + field.name + '">' + field.title + '</option>');
-                    if (field.name === currentValue) {
-                        $option.prop('selected', true);
-                    }
-                    $jetGroup.append($option);
-                });
-                $select.append($jetGroup);
+            // Nur Bildfelder für Bild-Dropdown anzeigen
+            if (fieldType === 'image' && !isImageField(field)) {
+                return; // Überspringen
             }
             
-            // Andere Felder hinzufügen
-            if (otherFields.length > 0) {
-                $.each(otherFields, function(i, field) {
-                    var $option = $('<option value="' + field.name + '">' + field.title + '</option>');
-                    if (field.name === currentValue) {
-                        $option.prop('selected', true);
-                    }
-                    $otherGroup.append($option);
-                });
-                $select.append($otherGroup);
-            }
-            
-            // Dropdown einfügen
-            $field.after($container);
-            $container.append($select);
-            
-            // Original-Feld verstecken
-            $field.css({
-                'position': 'absolute',
-                'left': '-9999px',
-                'width': '1px',
-                'height': '1px',
-                'opacity': '0'
-            });
-            
-            // Wert synchronisieren
-            $select.on('change', function() {
-                $field.val($(this).val());
-                $field.trigger('change'); // Event auslösen
-            });
-            
-            // Hinweistext hinzufügen
-            var hintText = "";
-            if (fieldType === 'filter') {
-                hintText = "Wählen Sie ein Meta-Feld für den Filter aus.";
-            } else if (fieldType === 'image') {
-                hintText = "Wählen Sie ein Bild-Meta-Feld aus (unterstützt Media, Gallery, etc.).";
-            } else if (fieldType === 'order') {
-                hintText = "Wählen Sie ein Meta-Feld für die Sortierung aus.";
-            }
-            
-            if (hintText) {
-                $container.after('<p class="jetengine-meta-hint" style="font-size: 12px; color: #666; margin-top: 3px;">' + hintText + '</p>');
+            // JetEngine-Felder oder andere
+            if (name.indexOf('_jet_') === 0 || name.indexOf('jet_') === 0) {
+                jetFields.push({name: name, title: title});
+            } else {
+                otherFields.push({name: name, title: title});
             }
         });
+        
+        console.log('Sortierte Felder:', {
+            jetFields: jetFields.length,
+            otherFields: otherFields.length
+        });
+        
+        // JetEngine-Felder zum Dropdown hinzufügen
+        if (jetFields.length > 0) {
+            $.each(jetFields, function(i, field) {
+                var $option = $('<option value="' + field.name + '">' + field.title + '</option>');
+                if (field.name === currentValue) {
+                    $option.prop('selected', true);
+                }
+                $jetGroup.append($option);
+            });
+            $select.append($jetGroup);
+        }
+        
+        // Andere Felder zum Dropdown hinzufügen
+        if (otherFields.length > 0) {
+            $.each(otherFields, function(i, field) {
+                var $option = $('<option value="' + field.name + '">' + field.title + '</option>');
+                if (field.name === currentValue) {
+                    $option.prop('selected', true);
+                }
+                $otherGroup.append($option);
+            });
+            $select.append($otherGroup);
+        }
+        
+        // Dropdown einfügen und Original-Feld verstecken
+        $field.after($container);
+        $container.append($select);
+        
+        $field.css({
+            'position': 'absolute',
+            'left': '-9999px',
+            'width': '1px',
+            'height': '1px',
+            'opacity': '0'
+        });
+        
+        // Event-Handler für Änderungen
+        $select.on('change', function() {
+            var newValue = $(this).val();
+            console.log('Dropdown-Änderung:', $field.attr('id'), 'Neuer Wert:', newValue);
+            
+            $field.val(newValue);
+            $field.trigger('change');
+        });
+        
+        // Hinweistext hinzufügen
+        var hintText = "";
+        if (fieldType === 'filter') {
+            hintText = "Wählen Sie ein Meta-Feld für den Filter aus.";
+        } else if (fieldType === 'image') {
+            hintText = "Wählen Sie ein Bild-Meta-Feld aus (unterstützt Media, Gallery, etc.).";
+        } else if (fieldType === 'order') {
+            hintText = "Wählen Sie ein Meta-Feld für die Sortierung aus.";
+        }
+        
+        if (hintText) {
+            $container.after('<p class="jetengine-meta-hint" style="font-size: 12px; color: #666; margin-top: 3px;">' + hintText + '</p>');
+        }
+        
+        console.log('Dropdown erfolgreich erstellt für:', $field.attr('id'));
     }
     
     /**
      * Prüft, ob ein Feld ein Bildfeld ist
      * 
-     * @param {Object} field Feld-Objekt
-     * @return {boolean} True, wenn es ein Bildfeld ist
+     * @param {Object} field Feldinformationen
+     * @return {boolean} True wenn es ein Bildfeld ist
      */
     function isImageField(field) {
         if (!field.type) {
@@ -216,664 +406,9 @@
     }
     
     /**
-     * Lädt Meta-Felder über AJAX
-     * 
-     * @param {Function} callback Callback-Funktion mit Feldern als Parameter
-     */
-    function loadMetaFields(callback) {
-        // Aktuellen Generator-Typ ermitteln
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) {
-            callback([]);
-            return;
-        }
-        
-        // Post-Typ aus Generator-Typ extrahieren
-        var postTypeMatch = generatorType.match(/post_type_([a-zA-Z0-9_-]+)/);
-        if (!postTypeMatch || !postTypeMatch[1]) {
-            callback([]);
-            return;
-        }
-        
-        var postType = postTypeMatch[1];
-        
-        // Meta-Felder über AJAX laden
-        $.ajax({
-            url: ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'jetengine_smartslider_get_meta_fields',
-                post_type: postType,
-                nonce: jetengineSmartSliderData.nonce
-            },
-            success: function(response) {
-                if (response.success && response.data && response.data.fields) {
-                    callback(response.data.fields);
-                } else {
-                    console.error('Fehler beim Laden der Meta-Felder:', response);
-                    callback([]);
-                }
-            },
-            error: function() {
-                console.error('AJAX-Fehler beim Laden der Meta-Felder');
-                callback([]);
-            }
-        });
-    }
-
-    /**
-     * Initialisierung für Post Type Generator
-     */
-    function initPostTypeGenerator() {
-        // Meta-Feld-Auswahl dynamisieren
-        updateMetaFieldOptions();
-        
-        // Taxonomie-Auswahl aktualisieren
-        updateTaxonomyOptions();
-        
-        // Taxonomie-Abhängigkeiten
-        handleTaxonomyDependencies();
-    }
-
-    /**
-     * Initialisierung für Content Type Generator
-     */
-    function initContentTypeGenerator() {
-        // CCT-spezifische Feldoptionen laden
-        updateCCTFieldOptions();
-    }
-
-    /**
-     * Initialisierung für Relation Generator
-     */
-    function initRelationGenerator() {
-        // Relations-spezifisches Setup
-        setupRelationDropdowns();
-    }
-
-    /**
-     * Gemeinsame Initialisierung für alle Generator-Typen
-     */
-    function initCommonGeneratorFields() {
-        // Bildquellenoptionen verwalten
-        handleImageSourceOptions();
-        
-        // Sortieroptionen initialisieren
-        initSortingOptions();
-        
-        // Metakey-Feld-Abhängigkeiten
-        handleMetaKeyDependencies();
-    }
-
-    /**
-     * Behandelt Meta-Key-Abhängigkeiten basierend auf Sortierauswahl
-     */
-    function handleMetaKeyDependencies() {
-        // Meta-Key-Feld für Sortierung anzeigen/ausblenden
-        var $orderbyField = $('#n2_generator_ordering_orderby');
-        var $metaKeyField = $('#n2_generator_ordering_meta_key').closest('.n2_form__item');
-        
-        function updateMetaKeyVisibility() {
-            var orderby = $orderbyField.val();
-            if (orderby === 'meta_value' || orderby === 'meta_value_num') {
-                $metaKeyField.show();
-            } else {
-                $metaKeyField.hide();
-            }
-        }
-        
-        // Initial ausführen
-        updateMetaKeyVisibility();
-        
-        // Bei Änderung aktualisieren
-        $orderbyField.on('change', updateMetaKeyVisibility);
-    }
-
-    /**
-     * Behandelt Abhängigkeiten zwischen Taxonomien
-     */
-    function handleTaxonomyDependencies() {
-        var $taxonomiesField = $('#n2_generator_filter_taxonomies');
-        
-        function updateTaxonomyTermFields() {
-            var selectedTaxonomies = $taxonomiesField.val();
-            
-            // Alle Taxonomie-Term-Felder ausblenden
-            $('[id^="n2_generator_filter_taxonomy_"]').closest('.n2_form__item').hide();
-            
-            // Relation-Feld zeigen, wenn mehr als eine Taxonomie ausgewählt ist
-            var $relationField = $('#n2_generator_filter_taxonomies_relation').closest('.n2_form__item');
-            
-            if (selectedTaxonomies && selectedTaxonomies.indexOf(',') > -1) {
-                $relationField.show();
-            } else {
-                $relationField.hide();
-            }
-            
-            // Ausgewählte Taxonomie-Term-Felder anzeigen
-            if (selectedTaxonomies) {
-                var taxonomies = selectedTaxonomies.split(',');
-                for (var i = 0; i < taxonomies.length; i++) {
-                    $('#n2_generator_filter_taxonomy_' + taxonomies[i]).closest('.n2_form__item').show();
-                }
-            }
-        }
-        
-        // Initial ausführen
-        updateTaxonomyTermFields();
-        
-        // Bei Änderung aktualisieren
-        $taxonomiesField.on('change', updateTaxonomyTermFields);
-    }
-
-    /**
-     * Bildsource-Optionen verwalten
-     */
-    function handleImageSourceOptions() {
-        var $imageSourceField = $('#n2_generator_image_image_source');
-        var $imageMetaField = $('#n2_generator_image_image_meta').closest('.n2_form__item');
-        
-        function updateImageMetaVisibility() {
-            var source = $imageSourceField.val();
-            if (source === 'meta' || source === 'jet_gallery') {
-                $imageMetaField.show();
-            } else {
-                $imageMetaField.hide();
-            }
-        }
-        
-        // Initial ausführen
-        updateImageMetaVisibility();
-        
-        // Bei Änderung aktualisieren
-        $imageSourceField.on('change', updateImageMetaVisibility);
-    }
-
-    /**
-     * Initialisiert Sortieroptionen
-     */
-    function initSortingOptions() {
-        // Meta-Feld-Optionen für Sortierung aktualisieren
-        updateMetaKeyOptions();
-    }
-
-    /**
-     * Aktualisiert das Dropdown mit Meta-Feld-Optionen
-     */
-    function updateMetaFieldOptions() {
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) return;
-        
-        // AJAX-Anfrage, um Meta-Felder zu laden
-        $.ajax({
-            url: ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'jetengine_smartslider_get_meta_fields',
-                generator_type: generatorType,
-                nonce: jetengineSmartSliderData.nonce
-            },
-            success: function(response) {
-                if (response.success && response.data.fields) {
-                    populateMetaFieldDropdown(response.data.fields);
-                }
-            }
-        });
-    }
-
-    /**
-     * Aktualisiert das Dropdown mit Taxonomie-Optionen
-     */
-    function updateTaxonomyOptions() {
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) return;
-        
-        // AJAX-Anfrage, um Taxonomien zu laden
-        $.ajax({
-            url: ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'jetengine_smartslider_get_taxonomies',
-                generator_type: generatorType,
-                nonce: jetengineSmartSliderData.nonce
-            },
-            success: function(response) {
-                if (response.success && response.data.taxonomies) {
-                    populateTaxonomyDropdown(response.data.taxonomies);
-                }
-            }
-        });
-    }
-
-    /**
-     * Aktualisiert das Dropdown mit CCT-Feld-Optionen
-     */
-    function updateCCTFieldOptions() {
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) return;
-        
-        // AJAX-Anfrage, um CCT-Felder zu laden
-        $.ajax({
-            url: ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'jetengine_smartslider_get_cct_fields',
-                generator_type: generatorType,
-                nonce: jetengineSmartSliderData.nonce
-            },
-            success: function(response) {
-                if (response.success && response.data.fields) {
-                    populateCCTFieldDropdown(response.data.fields);
-                }
-            }
-        });
-    }
-
-    /**
-     * Aktualisiert das Dropdown mit Meta-Key-Optionen für Sortierung
-     */
-    function updateMetaKeyOptions() {
-        // Ähnlich wie updateMetaFieldOptions, aber spezifisch für Sortier-Meta-Keys
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) return;
-        
-        // AJAX-Anfrage für Meta-Keys
-        $.ajax({
-            url: ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'jetengine_smartslider_get_meta_keys',
-                generator_type: generatorType,
-                nonce: jetengineSmartSliderData.nonce
-            },
-            success: function(response) {
-                if (response.success && response.data.keys) {
-                    populateMetaKeyDropdown(response.data.keys);
-                }
-            }
-        });
-    }
-
-    /**
-     * Richtet die Relations-Dropdown-Menüs ein
-     */
-    function setupRelationDropdowns() {
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) return;
-        
-        // AJAX-Anfrage für Relation-Optionen
-        $.ajax({
-            url: ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'jetengine_smartslider_get_relation_objects',
-                generator_type: generatorType,
-                nonce: jetengineSmartSliderData.nonce
-            },
-            success: function(response) {
-                if (response.success && response.data.objects) {
-                    populateRelationObjectsDropdown(response.data.objects);
-                }
-            }
-        });
-    }
-
-    /**
-     * Füllt das Meta-Feld-Dropdown mit Optionen
-     */
-    function populateMetaFieldDropdown(fields) {
-        var $dropdown = $('#n2_generator_filter_meta_name');
-        $dropdown.empty();
-        
-        // Option für leere Auswahl
-        $dropdown.append($('<option></option>').val('').text('-- ' + jetengineSmartSliderData.select_field + ' --'));
-        
-        // Felder hinzufügen
-        $.each(fields, function(key, field) {
-            $dropdown.append($('<option></option>').val(field.name).text(field.title + ' (' + field.type + ')'));
-        });
-    }
-
-    /**
-     * Füllt das Taxonomie-Dropdown mit Optionen
-     */
-    function populateTaxonomyDropdown(taxonomies) {
-        var $dropdown = $('#n2_generator_filter_taxonomies');
-        $dropdown.empty();
-        
-        // Taxonomien hinzufügen
-        $.each(taxonomies, function(key, taxonomy) {
-            $dropdown.append($('<option></option>').val(taxonomy.name).text(taxonomy.label));
-        });
-        
-        // Multiple-Select aktivieren
-        if ($dropdown.data('select2')) {
-            $dropdown.select2('destroy');
-        }
-        
-        $dropdown.select2({
-            placeholder: jetengineSmartSliderData.select_taxonomies,
-            allowClear: true,
-            multiple: true
-        });
-    }
-
-    /**
-     * Füllt das CCT-Feld-Dropdown mit Optionen
-     */
-    function populateCCTFieldDropdown(fields) {
-        var $dropdown = $('#n2_generator_filter_cct_field');
-        $dropdown.empty();
-        
-        // Option für leere Auswahl
-        $dropdown.append($('<option></option>').val('').text('-- ' + jetengineSmartSliderData.select_field + ' --'));
-        
-        // Felder hinzufügen
-        $.each(fields, function(key, field) {
-            $dropdown.append($('<option></option>').val(field.name).text(field.title + ' (' + field.type + ')'));
-        });
-    }
-
-    /**
-     * Füllt das Meta-Key-Dropdown für Sortierung
-     */
-    function populateMetaKeyDropdown(keys) {
-        var $dropdown = $('#n2_generator_ordering_meta_key');
-        $dropdown.empty();
-        
-        // Option für leere Auswahl
-        $dropdown.append($('<option></option>').val('').text('-- ' + jetengineSmartSliderData.select_meta_key + ' --'));
-        
-        // Keys hinzufügen
-        $.each(keys, function(key, metaKey) {
-            $dropdown.append($('<option></option>').val(metaKey.name).text(metaKey.title));
-        });
-    }
-
-    /**
-     * Füllt das Relations-Objekte-Dropdown
-     */
-    function populateRelationObjectsDropdown(objects) {
-        var $dropdown = $('#n2_generator_filter_parent_object');
-        $dropdown.empty();
-        
-        // Objekte hinzufügen
-        $.each(objects, function(key, object) {
-            $dropdown.append($('<option></option>').val(object.value).text(object.label));
-        });
-    }
-
-    /**
-     * Event-Listener hinzufügen
-     */
-    function attachEventListeners() {
-        // Smart Slider Generator-Auswahl-Event abfangen
-        $(document).on('SmartSlider3GeneratorSettingsChanged', function(e, settings) {
-            console.log('Generator-Einstellungen geändert:', settings);
-            refreshDynamicFields();
-        });
-        
-        // Generator-Test-Button-Klick
-        $(document).on('click', '.n2_generator_preview_button', function(e) {
-            preProcessGeneratorPreview(e);
-        });
-        
-        // Zusätzliche Hilfe-Tabs
-        $(document).on('click', '.jetengine-help-tab', function(e) {
-            e.preventDefault();
-            var tabId = $(this).data('tab');
-            showHelpTab(tabId);
-        });
-    }
-
-    /**
-     * Aktualisiert dynamische Felder
-     */
-    function refreshDynamicFields() {
-        var generatorType = getCurrentGeneratorType();
-        if (!generatorType) return;
-        
-        // Abhängige Felder aktualisieren
-        handleMetaKeyDependencies();
-        handleTaxonomyDependencies();
-        handleImageSourceOptions();
-        
-        // Meta-Feld-Dropdowns erneut prüfen
-        setTimeout(enhanceMetaFields, 500);
-    }
-
-    /**
-     * Vorverarbeitung für Generator-Vorschau
-     */
-    function preProcessGeneratorPreview(e) {
-        // Eigene Logik vor der Vorschau ausführen
-        // Falls notwendig, e.preventDefault() verwenden, um Default-Verhalten zu überschreiben
-        
-        // Log Generator-Einstellungen
-        console.log('Generator-Vorschau angefordert');
-    }
-
-    /**
-     * UI-Verbesserungen anwenden
-     */
-    function enhanceUserInterface() {
-        // Zusätzliche UI-Elemente hinzufügen
-        addHelpTabs();
-        
-        // Tipps zu Feldern hinzufügen
-        addFieldTips();
-        
-        // Feld-Label-Verbesserungen
-        enhanceFieldLabels();
-        
-        // CSS für Meta-Feld-Dropdowns hinzufügen
-        addMetaFieldDropdownCSS();
-    }
-    
-    /**
-     * Fügt CSS für Meta-Feld-Dropdowns hinzu
-     */
-    function addMetaFieldDropdownCSS() {
-        var css = `
-            .jetengine-meta-dropdown-container {
-                margin: 5px 0;
-                width: 100%;
-            }
-            
-            .jetengine-meta-dropdown {
-                width: 100%;
-                padding: 6px 8px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 13px;
-            }
-            
-            .jetengine-meta-dropdown:focus {
-                border-color: #0073aa;
-                box-shadow: 0 0 0 1px #0073aa;
-            }
-            
-            .jetengine-meta-hint {
-                font-size: 12px;
-                color: #666;
-                margin: 3px 0 8px;
-                font-style: italic;
-            }
-        `;
-        
-        // CSS zum Head hinzufügen
-        $('<style>').text(css).appendTo('head');
-    }
-
-    /**
-     * Hilfetabs hinzufügen
-     */
-    function addHelpTabs() {
-        // Nur hinzufügen, wenn die Tabs-Container existieren
-        var $tabsContainer = $('.n2_generator_parameters');
-        
-        if ($tabsContainer.length) {
-            var $helpTabs = $('<div class="jetengine-help-tabs"></div>');
-            
-            $helpTabs.append('<a href="#" class="jetengine-help-tab" data-tab="general">Allgemeine Hilfe</a>');
-            $helpTabs.append('<a href="#" class="jetengine-help-tab" data-tab="fields">Felder & Variablen</a>');
-            $helpTabs.append('<a href="#" class="jetengine-help-tab" data-tab="examples">Beispiele</a>');
-            
-            $tabsContainer.prepend($helpTabs);
-        }
-    }
-
-    /**
-     * Tipps zu Feldern hinzufügen
-     */
-    function addFieldTips() {
-        // Meta-Feld-Tipp
-        $('#n2_generator_filter_meta_name').closest('.n2_form__item').append(
-            '<div class="jetengine-field-description">' + 
-            jetengineSmartSliderData.meta_field_tip + 
-            '</div>'
-        );
-        
-        // Bild-Meta-Feld-Tipp
-        $('#n2_generator_image_image_meta').closest('.n2_form__item').append(
-            '<div class="jetengine-field-description">' + 
-            jetengineSmartSliderData.image_field_tip + 
-            '</div>'
-        );
-    }
-
-    /**
-     * Feld-Labels verbessern
-     */
-    function enhanceFieldLabels() {
-        // JetEngine-Icon zu Labels hinzufügen
-        $('[id^="n2_generator_filter_"], [id^="n2_generator_image_"], [id^="n2_generator_ordering_"]').each(function() {
-            var $label = $(this).closest('.n2_form__item').find('label');
-            if (!$label.find('.jetengine-icon').length) {
-                $label.prepend('<span class="jetengine-icon"></span> ');
-            }
-        });
-    }
-
-    /**
-     * Zeigt Hilfe-Tab an
-     */
-    function showHelpTab(tabId) {
-        // Hilfe-Dialog erstellen, falls noch nicht vorhanden
-        var $helpDialog = $('#jetengine-help-dialog');
-        
-        if (!$helpDialog.length) {
-            $helpDialog = $('<div id="jetengine-help-dialog" title="JetEngine Generator Hilfe"></div>');
-            $('body').append($helpDialog);
-        }
-        
-        // Hilfe-Inhalt basierend auf Tab-ID laden
-        var content = '';
-        
-        switch (tabId) {
-            case 'general':
-                content = getGeneralHelpContent();
-                break;
-            case 'fields':
-                content = getFieldsHelpContent();
-                break;
-            case 'examples':
-                content = getExamplesHelpContent();
-                break;
-            default:
-                content = 'Hilfe-Inhalt nicht verfügbar.';
-                break;
-        }
-        
-        $helpDialog.html(content);
-        
-        // Dialog anzeigen
-        if ($.fn.dialog) {
-            $helpDialog.dialog({
-                width: 600,
-                modal: true,
-                dialogClass: 'jetengine-help-dialog'
-            });
-        } else {
-            // Fallback, falls jQuery UI Dialog nicht verfügbar
-            alert('JetEngine Generator Hilfe: ' + tabId);
-        }
-    }
-
-    /**
-     * Gibt allgemeinen Hilfe-Inhalt zurück
-     */
-    function getGeneralHelpContent() {
-        return '<h3>Allgemeine Hilfe</h3>' +
-               '<p>Der JetEngine Generator ermöglicht es Ihnen, dynamische Slides aus JetEngine-Inhalten zu erstellen. ' +
-               'Sie können Custom Post Types, Custom Content Types oder Relations als Datenquelle verwenden.</p>' +
-               '<h4>Grundlegende Schritte:</h4>' +
-               '<ol>' +
-               '<li>Wählen Sie den JetEngine-Inhaltstyp, den Sie verwenden möchten</li>' +
-               '<li>Konfigurieren Sie die Filter- und Sortieroptionen</li>' +
-               '<li>Wählen Sie die Bildquelle für Ihre Slides</li>' +
-               '<li>Erstellen Sie den Slider und gestalten Sie die Slide-Vorlage</li>' +
-               '</ol>';
-    }
-
-    /**
-     * Gibt Felder-Hilfe-Inhalt zurück
-     */
-    function getFieldsHelpContent() {
-        return '<h3>Felder & Variablen</h3>' +
-               '<p>Die folgenden Variablen sind in Ihren Slides verfügbar:</p>' +
-               '<h4>Allgemeine Variablen:</h4>' +
-               '<ul>' +
-               '<li><code>id</code> - Element-ID</li>' +
-               '<li><code>title</code> - Titel</li>' +
-               '<li><code>url</code> - URL</li>' +
-               '<li><code>date</code> - Erstellungsdatum</li>' +
-               '<li><code>modified</code> - Änderungsdatum</li>' +
-               '<li><code>image</code> - Hauptbild-URL</li>' +
-               '</ul>' +
-               '<h4>Meta-Feld-Variablen:</h4>' +
-               '<p>Meta-Felder werden im Format <code>meta_FELDNAME</code> verfügbar gemacht.</p>' +
-               '<p>Für formatierte Werte: <code>meta_FELDNAME_formatted</code></p>';
-    }
-
-    /**
-     * Gibt Beispiele-Hilfe-Inhalt zurück
-     */
-    function getExamplesHelpContent() {
-        return '<h3>Beispiele</h3>' +
-               '<h4>Einfacher Produkt-Slider:</h4>' +
-               '<pre>' +
-               '&lt;div class="product-slide"&gt;\n' +
-               '  &lt;div class="product-image"&gt;\n' +
-               '    &lt;img src="{image}" alt="{title}"&gt;\n' +
-               '  &lt;/div&gt;\n' +
-               '  &lt;div class="product-info"&gt;\n' +
-               '    &lt;h3&gt;{title}&lt;/h3&gt;\n' +
-               '    &lt;p class="price"&gt;{meta_product_price}&lt;/p&gt;\n' +
-               '    &lt;a href="{url}" class="btn"&gt;Details&lt;/a&gt;\n' +
-               '  &lt;/div&gt;\n' +
-               '&lt;/div&gt;' +
-               '</pre>' +
-               '<h4>Immobilien-Slider mit Meta-Feldern:</h4>' +
-               '<pre>' +
-               '&lt;div class="property-slide"&gt;\n' +
-               '  &lt;img src="{image}" alt="{title}"&gt;\n' +
-               '  &lt;div class="property-details"&gt;\n' +
-               '    &lt;h3&gt;{title}&lt;/h3&gt;\n' +
-               '    &lt;div class="features"&gt;\n' +
-               '      &lt;span&gt;{meta_property_beds} Zimmer&lt;/span&gt;\n' +
-               '      &lt;span&gt;{meta_property_baths} Bäder&lt;/span&gt;\n' +
-               '      &lt;span&gt;{meta_property_area} m²&lt;/span&gt;\n' +
-               '    &lt;/div&gt;\n' +
-               '    &lt;p class="price"&gt;{meta_property_price_formatted}&lt;/p&gt;\n' +
-               '    &lt;a href="{url}"&gt;Details ansehen&lt;/a&gt;\n' +
-               '  &lt;/div&gt;\n' +
-               '&lt;/div&gt;' +
-               '</pre>';
-    }
-
-    /**
      * Gibt den aktuellen Generator-Typ zurück
+     * 
+     * @return {string|null} Generator-Typ oder null
      */
     function getCurrentGeneratorType() {
         // Versuche, den Generator-Typ aus der URL oder anderen Quellen zu ermitteln
@@ -886,6 +421,12 @@
         var $selected = $('.n2_generator_items__item--selected');
         if ($selected.length) {
             return $selected.data('generatortype');
+        }
+        
+        // Zweiter Fallback: Versuche aus dem DOM zu extrahieren
+        var generatorTypeField = $('input[name="generator_type"]');
+        if (generatorTypeField.length) {
+            return generatorTypeField.val();
         }
         
         return null;
