@@ -62,6 +62,201 @@
                 
                 // Gemeinsame Initialisierung für alle Generator-Typen
                 initCommonGeneratorFields();
+                
+                // Nach kurzer Verzögerung Meta-Felder verbessern
+                setTimeout(enhanceMetaFields, 500);
+            }
+        });
+    }
+
+    /**
+     * Verbessert die Meta-Feld-Eingabefelder mit Dropdown-Menüs
+     */
+    function enhanceMetaFields() {
+        // Meta-Feld-Name für Filter
+        var $metaNameField = $('label[for="generatormeta_filter_name"]').closest('.n2_field').find('input');
+        if ($metaNameField.length && !$metaNameField.data('enhanced')) {
+            createMetaFieldDropdown($metaNameField, 'filter');
+            $metaNameField.data('enhanced', true);
+        }
+        
+        // Meta-Feld für Bilder
+        var $imageMetaField = $('label[for="generatormeta_image_meta"]').closest('.n2_field').find('input');
+        if ($imageMetaField.length && !$imageMetaField.data('enhanced')) {
+            createMetaFieldDropdown($imageMetaField, 'image');
+            $imageMetaField.data('enhanced', true);
+        }
+        
+        // Meta-Feld für Sortierung
+        var $orderMetaField = $('label[for="generatormeta_order_key"]').closest('.n2_field').find('input');
+        if ($orderMetaField.length && !$orderMetaField.data('enhanced')) {
+            createMetaFieldDropdown($orderMetaField, 'order');
+            $orderMetaField.data('enhanced', true);
+        }
+    }
+    
+    /**
+     * Erstellt ein Dropdown-Menü für Meta-Felder
+     * 
+     * @param {jQuery} $field Das zu verbessernde Eingabefeld
+     * @param {string} fieldType Typ des Feldes (filter, image, order)
+     */
+    function createMetaFieldDropdown($field, fieldType) {
+        // Meta-Felder laden
+        loadMetaFields(function(fields) {
+            // Aktuellen Wert speichern
+            var currentValue = $field.val();
+            
+            // Container erstellen
+            var $container = $('<div class="jetengine-meta-dropdown-container"></div>');
+            
+            // Select-Element erstellen
+            var $select = $('<select class="jetengine-meta-dropdown"></select>');
+            
+            // Platzhalter-Option
+            $select.append('<option value="">-- Meta-Feld auswählen --</option>');
+            
+            // Optionsgruppen erstellen
+            var $jetGroup = $('<optgroup label="JetEngine Felder"></optgroup>');
+            var $otherGroup = $('<optgroup label="Andere Felder"></optgroup>');
+            
+            // Felder sortieren
+            var jetFields = [];
+            var otherFields = [];
+            
+            $.each(fields, function(i, field) {
+                var name = field.name || field.key;
+                var title = field.title || field.label || name;
+                
+                // Nur Bild-Felder für Bild-Dropdown anzeigen
+                if (fieldType === 'image' && !isImageField(field)) {
+                    return; // Überspringen
+                }
+                
+                // JetEngine-Felder oder andere
+                if (name.indexOf('_jet_') === 0 || name.indexOf('jet_') === 0) {
+                    jetFields.push({name: name, title: title});
+                } else {
+                    otherFields.push({name: name, title: title});
+                }
+            });
+            
+            // JetEngine-Felder hinzufügen
+            if (jetFields.length > 0) {
+                $.each(jetFields, function(i, field) {
+                    var $option = $('<option value="' + field.name + '">' + field.title + '</option>');
+                    if (field.name === currentValue) {
+                        $option.prop('selected', true);
+                    }
+                    $jetGroup.append($option);
+                });
+                $select.append($jetGroup);
+            }
+            
+            // Andere Felder hinzufügen
+            if (otherFields.length > 0) {
+                $.each(otherFields, function(i, field) {
+                    var $option = $('<option value="' + field.name + '">' + field.title + '</option>');
+                    if (field.name === currentValue) {
+                        $option.prop('selected', true);
+                    }
+                    $otherGroup.append($option);
+                });
+                $select.append($otherGroup);
+            }
+            
+            // Dropdown einfügen
+            $field.after($container);
+            $container.append($select);
+            
+            // Original-Feld verstecken
+            $field.css({
+                'position': 'absolute',
+                'left': '-9999px',
+                'width': '1px',
+                'height': '1px',
+                'opacity': '0'
+            });
+            
+            // Wert synchronisieren
+            $select.on('change', function() {
+                $field.val($(this).val());
+                $field.trigger('change'); // Event auslösen
+            });
+            
+            // Hinweistext hinzufügen
+            var hintText = "";
+            if (fieldType === 'filter') {
+                hintText = "Wählen Sie ein Meta-Feld für den Filter aus.";
+            } else if (fieldType === 'image') {
+                hintText = "Wählen Sie ein Bild-Meta-Feld aus (unterstützt Media, Gallery, etc.).";
+            } else if (fieldType === 'order') {
+                hintText = "Wählen Sie ein Meta-Feld für die Sortierung aus.";
+            }
+            
+            if (hintText) {
+                $container.after('<p class="jetengine-meta-hint" style="font-size: 12px; color: #666; margin-top: 3px;">' + hintText + '</p>');
+            }
+        });
+    }
+    
+    /**
+     * Prüft, ob ein Feld ein Bildfeld ist
+     * 
+     * @param {Object} field Feld-Objekt
+     * @return {boolean} True, wenn es ein Bildfeld ist
+     */
+    function isImageField(field) {
+        if (!field.type) {
+            return true; // Bei Unsicherheit durchlassen
+        }
+        
+        var imageTypes = ['image', 'media', 'gallery', 'file'];
+        return imageTypes.indexOf(field.type) !== -1;
+    }
+    
+    /**
+     * Lädt Meta-Felder über AJAX
+     * 
+     * @param {Function} callback Callback-Funktion mit Feldern als Parameter
+     */
+    function loadMetaFields(callback) {
+        // Aktuellen Generator-Typ ermitteln
+        var generatorType = getCurrentGeneratorType();
+        if (!generatorType) {
+            callback([]);
+            return;
+        }
+        
+        // Post-Typ aus Generator-Typ extrahieren
+        var postTypeMatch = generatorType.match(/post_type_([a-zA-Z0-9_-]+)/);
+        if (!postTypeMatch || !postTypeMatch[1]) {
+            callback([]);
+            return;
+        }
+        
+        var postType = postTypeMatch[1];
+        
+        // Meta-Felder über AJAX laden
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'jetengine_smartslider_get_meta_fields',
+                post_type: postType,
+                nonce: jetengineSmartSliderData.nonce
+            },
+            success: function(response) {
+                if (response.success && response.data && response.data.fields) {
+                    callback(response.data.fields);
+                } else {
+                    console.error('Fehler beim Laden der Meta-Felder:', response);
+                    callback([]);
+                }
+            },
+            error: function() {
+                console.error('AJAX-Fehler beim Laden der Meta-Felder');
+                callback([]);
             }
         });
     }
@@ -442,6 +637,9 @@
         handleMetaKeyDependencies();
         handleTaxonomyDependencies();
         handleImageSourceOptions();
+        
+        // Meta-Feld-Dropdowns erneut prüfen
+        setTimeout(enhanceMetaFields, 500);
     }
 
     /**
@@ -467,6 +665,44 @@
         
         // Feld-Label-Verbesserungen
         enhanceFieldLabels();
+        
+        // CSS für Meta-Feld-Dropdowns hinzufügen
+        addMetaFieldDropdownCSS();
+    }
+    
+    /**
+     * Fügt CSS für Meta-Feld-Dropdowns hinzu
+     */
+    function addMetaFieldDropdownCSS() {
+        var css = `
+            .jetengine-meta-dropdown-container {
+                margin: 5px 0;
+                width: 100%;
+            }
+            
+            .jetengine-meta-dropdown {
+                width: 100%;
+                padding: 6px 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+            
+            .jetengine-meta-dropdown:focus {
+                border-color: #0073aa;
+                box-shadow: 0 0 0 1px #0073aa;
+            }
+            
+            .jetengine-meta-hint {
+                font-size: 12px;
+                color: #666;
+                margin: 3px 0 8px;
+                font-style: italic;
+            }
+        `;
+        
+        // CSS zum Head hinzufügen
+        $('<style>').text(css).appendTo('head');
     }
 
     /**

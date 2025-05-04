@@ -1,5 +1,8 @@
 /**
- * Admin CSS für JetEngine SmartSlider 3 Generator
+ * Enhanced Admin CSS for JetEngine SmartSlider 3 Generator
+ * - Added accordion styling
+ * - Improved dropdown styling
+ * - Better visual presentation
  */
 
 /* Icon Styling */
@@ -203,6 +206,112 @@ input:checked + .jetengine-slider:before {
     margin-bottom: 0;
 }
 
+/* Accordion UI Styling */
+.jetengine-accordion-section {
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.jetengine-accordion-header {
+    cursor: pointer;
+    padding: 15px;
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #ddd;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    position: relative;
+}
+
+.jetengine-accordion-header::after {
+    content: "▼";
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.jetengine-accordion-header.jetengine-accordion-active {
+    background-color: #fff0eb;
+    border-bottom-color: #f56038;
+    color: #f56038;
+}
+
+.jetengine-accordion-header.jetengine-accordion-active::after {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.n2_form__table_fields {
+    transition: all 0.3s ease;
+    padding: 15px;
+}
+
+.n2_form__table_title {
+    margin: 0 !important;
+    color: #333;
+}
+
+/* JetEngine Icon for Form Items */
+.jetengine-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-image: url('../images/jetengine-icon.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+/* Help Tabs */
+.jetengine-help-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+.jetengine-help-tab {
+    padding: 8px 15px;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+    color: #333;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.jetengine-help-tab:hover {
+    background-color: #fff0eb;
+    border-color: #f56038;
+    color: #f56038;
+}
+
+/* Improved Dropdown Styling */
+.n2_field_select {
+    max-width: 100%;
+    width: 100%;
+}
+
+.n2_field_select__select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 13px;
+}
+
+.n2_field_select__select:focus {
+    border-color: #f56038;
+    outline: none;
+    box-shadow: 0 0 0 1px #f56038;
+}
+
 /* Responsive adjustments */
 @media screen and (max-width: 782px) {
     .n2_generator_items__item[data-group="jetengine"] {
@@ -213,5 +322,14 @@ input:checked + .jetengine-slider:before {
         left: 5px;
         width: 14px;
         height: 14px;
+    }
+    
+    .jetengine-help-tabs {
+        flex-direction: column;
+    }
+    
+    .jetengine-help-tab {
+        margin-bottom: 5px;
+        margin-right: 0;
     }
 }

@@ -94,6 +94,11 @@ class JetEngine_SmartSlider_Generator {
             require_once $this->plugin_path . 'includes/helper.php';
             $this->log('Helper geladen');
         }
+		
+		// AJAX-Handler laden
+		if (file_exists($this->plugin_path . 'includes/ajax-handlers.php')) {
+			require_once $this->plugin_path . 'includes/ajax-handlers.php';
+		}
         
         // Generator Sources laden
         if (file_exists($this->plugin_path . 'includes/generator-sources.php')) {

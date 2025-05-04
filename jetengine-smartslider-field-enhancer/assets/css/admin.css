@@ -1,0 +1,121 @@
+/**
+ * JetEngine SmartSlider Field Enhancer - Admin CSS
+ * 
+ * Styling für die Enhanced-Dropdown-Menüs
+ */
+
+/* Container für Dropdown-Menüs */
+.jetengine-field-dropdown-container {
+    position: relative;
+    margin-bottom: 8px;
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Dropdown-Menü Styling */
+.jetengine-field-dropdown {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.jetengine-field-dropdown:hover {
+    border-color: #999;
+}
+
+.jetengine-field-dropdown:focus {
+    border-color: #0073aa;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+/* Optionsgruppen Styling */
+.jetengine-field-dropdown optgroup {
+    font-weight: 600;
+    color: #444;
+    background-color: #f8f8f8;
+}
+
+.jetengine-field-dropdown option {
+    padding: 4px;
+    font-weight: normal;
+    color: #333;
+    background-color: #fff;
+}
+
+/* Hinweis-Text unter Dropdown-Menüs */
+.jetengine-field-hint {
+    margin: 2px 0 10px 0;
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Verstecke das originale Textfeld */
+input[type="text"].n2_field_text__input[jetengine-enhanced="true"] {
+    display: none !important;
+}
+
+/* Hinweissymbole für verschiedene Feldtypen */
+.jetengine-field-dropdown-container:before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-size: 16px 16px;
+    background-repeat: no-repeat;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    opacity: 0.7;
+}
+
+/* Spezifisches Icon für JetEngine-Felder */
+.jetengine-field-dropdown-container.jetengine-filter-field:before {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23555" d="M3 4.5v-2s3.34-1 7-1 7 1 7 1v2l-5 7.03v6.97s-1.22-.09-2.25-.59S8 16.5 8 16.5v-4.97L3 4.5z"/></svg>');
+}
+
+.jetengine-field-dropdown-container.jetengine-image-field:before {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23555" d="M2.25 1h15.5c.69 0 1.25.56 1.25 1.25v15.5c0 .69-.56 1.25-1.25 1.25H2.25C1.56 19 1 18.44 1 17.75V2.25C1 1.56 1.56 1 2.25 1zM17 17V3H3v14h14zM10 6c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm3 5s0-6 3-6v10H4v-3c0-3 6 0 6 0 0-1 .33-2 3-2z"/></svg>');
+}
+
+.jetengine-field-dropdown-container.jetengine-order-field:before {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23555" d="M7 10V2H2v8h5zm6 0V2H8v8h5zm5-6v4h-5V4h5zm0 6h-5v8h5v-8zm-6 0H8v8h4v-8zm-6 0H2v8h4v-8z"/></svg>');
+}
+
+/* Hover-Effekt für Icons */
+.jetengine-field-dropdown-container:hover:before {
+    opacity: 1;
+}
+
+/* Animation für Ladevorgang */
+@keyframes jetengine-pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 0.3; }
+    100% { opacity: 0.7; }
+}
+
+.jetengine-field-loading:before {
+    animation: jetengine-pulse 1.5s infinite ease-in-out;
+}
+
+/* Responsive Styling */
+@media screen and (max-width: 782px) {
+    .jetengine-field-dropdown {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    
+    .jetengine-field-hint {
+        font-size: 13px;
+    }
+}
