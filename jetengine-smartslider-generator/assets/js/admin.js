@@ -1,8 +1,13 @@
 /**
  * Admin JavaScript für JetEngine SmartSlider 3 Generator
+ * Verbesserte Version mit robusteren Dropdowns und besserer Fehlerbehandlung
  */
 (function($) {
     'use strict';
+
+    // Globale Variablen
+    var enhancedFields = [];
+    var isInitialized = false;
 
     // Initialisieren, sobald das DOM geladen ist
     $(document).ready(function() {
@@ -21,6 +26,66 @@
             console.log('Keine Smart Slider Seite erkannt, breche Initialisierung ab');
             return;
         }
+
+        // Verhindern, dass die Funktion mehrfach ausgeführt wird
+        if (isInitialized) {
+            console.log('JetEngine Generator bereits initialisiert');
+            return;
+        }
+		/**
+ * Gezielter Fix für das Meta Field Name Problem im JetEngine SmartSlider Generator
+ * Diese Funktion sollte als Teil der admin.js integriert werden
+ */
+function fixMetaFieldNameIssue() {
+    // Prüfe, ob wir uns auf der richtigen Seite befinden
+    if (window.location.href.indexOf('generator') === -1 || 
+        window.location.href.indexOf('jetengine') === -1) {
+        return;
+    }
+
+    console.log('Meta Field Name Fix wird ausgeführt');
+
+    // Warten bis SmartSlider3 UI vollständig geladen ist
+    var checkInterval = setInterval(function() {
+        var $metaNameField = $('#generatormeta_name');
+        
+        if ($metaNameField.length) {
+            clearInterval(checkInterval);
+            console.log('Meta Name Feld gefunden, starte Fix');
+            
+            // Direkt ein manuelles Dropdown erstellen, falls andere Methoden fehlschlagen
+            setTimeout(function() {
+                // Prüfen, ob das Feld bereits verbessert wurde
+                if ($metaNameField.next('.jetengine-meta-dropdown-container').length === 0 && 
+                    window.jetEngineAvailableFields) {
+                    
+                    console.log('Erstelle manuelles Dropdown für Meta Name Feld');
+                    createMetaFieldDropdown($metaNameField, 'filter');
+                }
+            }, 1000);
+        }
+    }, 500);
+
+    // Zusätzlich auf SmartSlider Ereignisse hören
+    $(document).on('SmartSlider3GeneratorSettingsLoaded', function() {
+        console.log('SmartSlider3GeneratorSettingsLoaded Event empfangen');
+        setTimeout(function() {
+            var $metaNameField = $('#generatormeta_name');
+            if ($metaNameField.length && $metaNameField.next('.jetengine-meta-dropdown-container').length === 0) {
+                console.log('Meta Name Feld nach Settings Load gefunden, starte Fix');
+                createMetaFieldDropdown($metaNameField, 'filter');
+            }
+        }, 500);
+    });
+}
+
+/**
+ * Diese Funktion der init-Funktion hinzufügen
+ * Am Ende von initJetEngineGenerator() einfügen:
+ * 
+ * // Fix für das Meta Field Name Problem
+ * fixMetaFieldNameIssue();
+ */
 
         console.log('JetEngine SmartSlider Generator geladen');
         
@@ -51,13 +116,16 @@
                     loadMetaFieldsAndCreateDropdowns(postType);
                 } else {
                     console.log('Verwende Fallback Post-Typ');
-                    loadMetaFieldsAndCreateDropdowns('post'); // Fallback: Standard-Post-Typ verwenden
+                    loadMetaFieldsAndCreateDropdowns('post'); // Fallback: Standard-Post-Typ
                 }
             } else {
                 console.log('Verwende Fallback Post-Typ');
-                loadMetaFieldsAndCreateDropdowns('post'); // Fallback: Standard-Post-Typ verwenden
+                loadMetaFieldsAndCreateDropdowns('post'); // Fallback: Standard-Post-Typ
             }
         }
+
+        // Integration als initialisiert markieren
+        isInitialized = true;
     }
 
     /**
@@ -129,6 +197,38 @@
             // Verzögerung hinzufügen, um sicherzustellen, dass die UI aktualisiert wurde
             setTimeout(checkAndEnhanceFields, 500);
         });
+
+        // MutationObserver für dynamisch geladene Felder
+        var targetNode = document.getElementById('n2-admin');
+        if (targetNode) {
+            var observer = new MutationObserver(function(mutations) {
+                // Prüfen, ob neue Felder hinzugefügt wurden
+                var shouldEnhance = false;
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        for (var i = 0; i < mutation.addedNodes.length; i++) {
+                            var node = mutation.addedNodes[i];
+                            if (node.nodeType === 1 && $(node).find('[id^="generatormeta_"], [id="generatorimage_meta"]').length > 0) {
+                                shouldEnhance = true;
+                                break;
+                            }
+                        }
+                    }
+                });
+                
+                if (shouldEnhance) {
+                    console.log('Neue Felder erkannt, starte Feldverbesserung');
+                    setTimeout(checkAndEnhanceFields, 100);
+                }
+            });
+            
+            // Konfiguration des Observers
+            var config = { childList: true, subtree: true };
+            
+            // Observer starten
+            observer.observe(targetNode, config);
+            console.log('MutationObserver für dynamische Felder initialisiert');
+        }
     }
     
     /**
@@ -206,6 +306,9 @@
         console.log('Prüfe und verbessere Felder. jetEngineAvailableFields verfügbar:', !!window.jetEngineAvailableFields);
         
         if (window.jetEngineAvailableFields) {
+            // Vorhandene Dropdowns entfernen, um Dopplungen zu vermeiden
+            removeExistingDropdowns();
+            // Verbesserte Dropdown-Menüs erstellen
             enhanceMetaFields();
         } else {
             console.log('Keine Meta-Felder geladen, überspringe Feldverbesserung');
@@ -213,6 +316,26 @@
             // Versuche dennoch die Feldstruktur zu analysieren
             analyzeFieldStructure();
         }
+    }
+
+    /**
+     * Entfernt vorhandene Dropdown-Menüs
+     */
+    function removeExistingDropdowns() {
+        // Alle Dropdown-Container entfernen
+        $('.jetengine-meta-dropdown-container').remove();
+        // Hinweistexte entfernen
+        $('.jetengine-meta-hint').remove();
+        // Felder zurück auf normale Anzeige setzen
+        $('[id^="generatormeta_"], [id="generatorimage_meta"]').css({
+            'position': '',
+            'left': '',
+            'width': '',
+            'height': '',
+            'opacity': ''
+        });
+        // Liste der verbesserten Felder leeren
+        enhancedFields = [];
     }
     
     /**
@@ -253,21 +376,21 @@
         console.log('Bild-Meta-Feld gefunden:', $imageMetaField.length, 'mit Wert:', $imageMetaField.val());
         
         // Meta-Feld für Filter
-        if ($metaNameField.length && !$metaNameField.data('enhanced')) {
+        if ($metaNameField.length && !enhancedFields.includes('generatormeta_name')) {
             createMetaFieldDropdown($metaNameField, 'filter');
-            $metaNameField.data('enhanced', true);
+            enhancedFields.push('generatormeta_name');
         }
         
         // Meta-Feld für Sortierung
-        if ($metaKeyField.length && !$metaKeyField.data('enhanced')) {
+        if ($metaKeyField.length && !enhancedFields.includes('generatormeta_key')) {
             createMetaFieldDropdown($metaKeyField, 'order');
-            $metaKeyField.data('enhanced', true);
+            enhancedFields.push('generatormeta_key');
         }
         
         // Meta-Feld für Bilder
-        if ($imageMetaField.length && !$imageMetaField.data('enhanced')) {
+        if ($imageMetaField.length && !enhancedFields.includes('generatorimage_meta')) {
             createMetaFieldDropdown($imageMetaField, 'image');
-            $imageMetaField.data('enhanced', true);
+            enhancedFields.push('generatorimage_meta');
         }
         
         console.log('Meta-Feldverbesserung abgeschlossen');
