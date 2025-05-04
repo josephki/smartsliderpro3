@@ -341,8 +341,10 @@ class JetEngine_SmartSlider_Generator {
     
     /**
      * Nachricht protokollieren
+     * 
+     * Changed from private to public to allow access from other classes
      */
-    private function log($message) {
+    public function log($message) {
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('[JetEngine SmartSlider] ' . $message);
         }

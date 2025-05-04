@@ -13,6 +13,9 @@ use Nextend\Framework\Form\Container\ContainerTable;
 use Nextend\Framework\Form\Element\OnOff;
 use Nextend\Framework\Form\Element\Select;
 use Nextend\Framework\Form\Element\Text;
+// Changed this line to avoid using "Mixed" as a class name
+use Nextend\Framework\Form\Element\Mixed as MixedElement;
+use Nextend\Framework\Form\Element\Group;
 
 class JetEngine_SmartSlider_Source_Relation extends AbstractGenerator {
     

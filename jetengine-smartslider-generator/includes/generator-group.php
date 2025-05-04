@@ -86,10 +86,77 @@ class JetEngine_SmartSlider_Generator_Group extends \Nextend\SmartSlider3\Genera
             if (function_exists('jet_engine') && method_exists(jet_engine(), 'relations')) {
                 $this->loadRelations();
             }
+            
+            // Query Builder laden, falls verfügbar
+            if (function_exists('jet_engine') && method_exists(jet_engine(), 'modules') && 
+                jet_engine()->modules->is_module_active('query-builder')) {
+                $this->loadQueryBuilder();
+            }
+            
+            // Zusätzliche Quellen laden via Hook
+            do_action('jetengine_smartslider_load_additional_sources', $this);
+            
         } catch (\Exception $e) {
             // Fehlerbehandlung
             if (function_exists('jetengine_smartslider_generator')) {
-                jetengine_smartslider_generator()->log('Error loading sources: ' . $e->getMessage());
+                jetengine_smartslider_generator()->log('Fehler beim Laden der Quellen: ' . $e->getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Load query builder sources
+     */
+    private function loadQueryBuilder() {
+        // Prüfen, ob die Quell-Datei existiert
+        $source_file = plugin_dir_path(dirname(__FILE__)) . 'includes/sources/query.php';
+        if (!file_exists($source_file)) {
+            return;
+        }
+        
+        // Klasse laden, falls noch nicht geladen
+        if (!class_exists('JetEngine_SmartSlider_Source_Query')) {
+            require_once $source_file;
+        }
+        
+        // Query Builder Modul abrufen
+        $query_builder = jet_engine()->modules->get_module('query-builder');
+        
+        if (!$query_builder || !isset($query_builder->instance) || !method_exists($query_builder->instance, 'get_queries')) {
+            return;
+        }
+        
+        // Queries abrufen
+        $queries = $query_builder->instance->get_queries();
+        
+        if (empty($queries)) {
+            return;
+        }
+        
+        foreach ($queries as $query) {
+            try {
+                // Query überspringen, falls keine ID oder kein Name vorhanden
+                if (!isset($query['id']) || !isset($query['name'])) {
+                    continue;
+                }
+                
+                // Generator-Quelle für Query erstellen
+                $this->sources['query_' . $query['id']] = new JetEngine_SmartSlider_Source_Query(
+                    $this,
+                    'query_' . $query['id'],
+                    $query['name'],
+                    $query
+                );
+                
+                // Logging für erfolgreiche Registrierung
+                if (function_exists('jetengine_smartslider_generator')) {
+                    jetengine_smartslider_generator()->log('Query Builder Quelle geladen: ' . $query['name']);
+                }
+            } catch (\Exception $e) {
+                // Fehlerbehandlung pro Query
+                if (function_exists('jetengine_smartslider_generator')) {
+                    jetengine_smartslider_generator()->log('Fehler beim Laden von Query ' . $query['name'] . ': ' . $e->getMessage());
+                }
             }
         }
     }

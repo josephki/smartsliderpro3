@@ -10,12 +10,15 @@ Eine fortschrittliche Integration zwischen JetEngine und Smart Slider 3 Pro, die
 - **Intelligente Taxonomie-Verarbeitung**: Filtere Beiträge nach Taxonomien mit erweiterten Beziehungsoptionen (UND/ODER)
 - **Flexible Sortierung**: Sortiere Inhalte nach verschiedenen Kriterien, einschließlich Meta-Feldern
 - **Umfangreiche Variablen**: Greife auf alle JetEngine-Daten in deinen Smart Slider-Slides mit korrekt formatierten Variablen zu
+- **Query Builder-Unterstützung**: Nutze JetEngine-Abfragen für komplexe Datenauswahl
+- **Robuste Fehlerbehandlung**: Umfassende Protokollierung und Fehlerbehandlung
 
 ## Anforderungen
 
 - WordPress 5.6 oder höher
 - JetEngine 2.8.0 oder höher
 - Smart Slider 3 Pro 3.5.0 oder höher
+- PHP 7.2 oder höher
 
 ## Installation
 
@@ -29,7 +32,7 @@ Eine fortschrittliche Integration zwischen JetEngine und Smart Slider 3 Pro, die
 
 1. Gehe zu Smart Slider 3 > Slider erstellen > Dynamischer Slide
 2. Wähle "JetEngine" aus der Generator-Liste
-3. Wähle die spezifische JetEngine-Quelle aus (Custom Post Type, Custom Content Type oder Relation)
+3. Wähle die spezifische JetEngine-Quelle aus (Custom Post Type, Custom Content Type, Relation oder Query)
 4. Konfiguriere die Filter-Einstellungen nach Bedarf:
    - Filtere nach Taxonomien
    - Setze Meta-Feld-Bedingungen
@@ -57,6 +60,12 @@ Zeige verwandte Inhalte über JetEngine-Relations an:
 - Eltern-Kind-Beziehungen
 - Hole Kinder für ein Elternelement oder Eltern für ein Kindelement
 - Filtere und sortiere verwandte Elemente
+
+#### Query Builder
+Erstelle Slides aus JetEngine-Abfragen:
+- Unterstützung für alle Abfragetypen (Posts, Terms, Users, etc.)
+- Benutzerdefinierte Abfrageparameter
+- Erweiterte Filterung und Sortierung
 
 ### Verwenden von JetEngine-Meta-Feldern
 
@@ -104,32 +113,55 @@ Filtere deine Inhalte nach Meta-Feldwerten mit diesen Vergleichsoperatoren:
 Beim Erstellen deiner Slide-Vorlage hast du Zugriff auf zahlreiche Variablen, abhängig von der Quelle:
 
 ### Allgemeine Variablen
-- `id` - Element-ID
-- `title` - Elementtitel
-- `url` - Element-URL
-- `date` - Erstellungsdatum
-- `modified` - Änderungsdatum
-- `image` - Haupt-Bild-URL
-- `thumbnail` - Thumbnail-Bild-URL
+- `{id}` - Element-ID
+- `{title}` - Elementtitel
+- `{url}` - Element-URL
+- `{date}` - Erstellungsdatum
+- `{modified}` - Änderungsdatum
+- `{image}` - Haupt-Bild-URL
+- `{thumbnail}` - Thumbnail-Bild-URL
 
 ### Custom Post Type spezifisch
-- `content` - Post-Inhalt
-- `excerpt` - Post-Auszug
-- `author_name` - Autorname
-- `author_url` - Autor-Archiv-URL
-- `comment_count` - Anzahl der Kommentare
-- `[taxonomy]` - Taxonomie-Begriffe durch Komma getrennt
-- `[taxonomy]_slugs` - Taxonomie-Begriff-Slugs
-- `[taxonomy]_urls` - Taxonomie-Begriff-URLs
+- `{content}` - Post-Inhalt
+- `{excerpt}` - Post-Auszug
+- `{author_name}` - Autorname
+- `{author_url}` - Autor-Archiv-URL
+- `{comment_count}` - Anzahl der Kommentare
+- `{[taxonomy]}` - Taxonomie-Begriffe durch Komma getrennt
+- `{[taxonomy]_slugs}` - Taxonomie-Begriff-Slugs
+- `{[taxonomy]_urls}` - Taxonomie-Begriff-URLs
 
 ### Meta-Feld-Variablen
-- `meta_[field_name]` - Roher Meta-Feldwert
-- `meta_[field_name]_formatted` - Formatierter Meta-Feldwert
+- `{meta_[field_name]}` - Roher Meta-Feldwert
+- `{meta_[field_name]_formatted}` - Formatierter Meta-Feldwert
 - Zusätzliche spezialisierte Variablen je nach Feldtyp
+
+## Einstellungen und Konfiguration
+
+Das Plugin bietet eine eigene Einstellungsseite, über die du verschiedene Aspekte konfigurieren kannst:
+
+1. **Allgemeine Einstellungen**
+   - Aktiviere oder deaktiviere bestimmte Generator-Typen
+   - Lege Standard-Einträge pro Seite fest
+
+2. **Debug-Einstellungen**
+   - Aktiviere den Debug-Modus für detaillierte Protokollierung
+   - Wähle das Log-Level (Fehler, Warnungen, Info, Debug)
+   - Sieh Log-Dateien ein und verwalte sie
+
+## Fehlerbehebung
+
+Häufige Probleme und Lösungen:
+
+- **JetEngine-Quellen werden nicht angezeigt**: Stelle sicher, dass JetEngine aktiviert ist und die gewünschten Quellen in den Einstellungen aktiviert sind.
+- **Meta-Feld-Werte werden nicht korrekt angezeigt**: Überprüfe die Feldnamen und verwende die richtigen Variablenformate (`{meta_FELDNAME}` oder `{meta_FELDNAME_formatted}`).
+- **Bilder werden nicht angezeigt**: Stelle sicher, dass die richtige Bildquelle konfiguriert ist und dass die Felder gültige Werte enthalten.
 
 ## Support
 
-Wenn du Probleme hast oder Fragen zum Plugin hast, kontaktiere bitte unser Support-Team.
+Bei Fragen oder Problemen kontaktiere bitte unser Support-Team:
+
+- E-Mail: support@example.com
 
 ## Lizenz
 
@@ -139,5 +171,4 @@ Dieses Plugin ist unter der GPL v2 oder höher lizenziert.
 
 ### Credits
 
-- Entwickelt von [Dein Name/Unternehmen]
 - Erstellt für JetEngine von Crocoblock und Smart Slider 3 Pro von Nextend
