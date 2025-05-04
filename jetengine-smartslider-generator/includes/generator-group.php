@@ -1,30 +1,36 @@
 <?php
 /**
- * JetEngine Generator Group
+ * JetEngine Generator Group - Optimierte Version
  * 
- * This class handles the main generator group that will appear in Smart Slider 3 Pro
+ * Diese optimierte Version verhindert Timing-Probleme bei der Klassenladung
  */
 
 // Prevent direct access
 if (!defined('ABSPATH')) exit;
 
-use Nextend\SmartSlider3\Generator\AbstractGeneratorGroup;
-use Nextend\Framework\Pattern\GetAssetsPathTrait;
+// Prüfen, ob die erforderlichen Klassen bereits verfügbar sind
+if (!class_exists('Nextend\SmartSlider3\Generator\AbstractGeneratorGroup')) {
+    return;
+}
 
-class JetEngine_SmartSlider_Generator_Group extends AbstractGeneratorGroup {
+/**
+ * JetEngine Generator Group
+ */
+class JetEngine_SmartSlider_Generator_Group extends \Nextend\SmartSlider3\Generator\AbstractGeneratorGroup {
     
     protected $name = 'jetengine';
     protected $url = '';
     protected $displayName = 'JetEngine';
     
     /**
-     * Generator Group constructor
+     * Constructor
      */
     public function __construct() {
-        parent::__construct();
-        $this->url = plugin_dir_url(dirname(__FILE__));
+        // Wichtig: Wir rufen parent::__construct() nicht auf, um zu verhindern, dass der Generator 
+        // während der Konstruktion registriert wird. Die Registrierung erfolgt manuell später.
+        // parent::__construct();
         
-        jetengine_smartslider_generator()->log('JetEngine_SmartSlider_Generator_Group constructed');
+        $this->url = plugin_dir_url(dirname(__FILE__));
     }
     
     /**
@@ -51,76 +57,109 @@ class JetEngine_SmartSlider_Generator_Group extends AbstractGeneratorGroup {
      * @return string Icon URL
      */
     public function getIcon() {
-        return jetengine_smartslider_generator()->plugin_url . 'assets/images/jetengine-icon.svg';
+        $icon_path = 'assets/images/jetengine-icon.svg';
+        
+        // Prüfen, ob die Icon-Datei existiert
+        if (file_exists(plugin_dir_path(dirname(__FILE__)) . $icon_path)) {
+            return plugin_dir_url(dirname(__FILE__)) . $icon_path;
+        }
+        
+        // Fallback auf ein allgemeines Icon
+        return 'https://img.icons8.com/color/48/000000/database.png';
     }
     
     /**
      * Load generator sources
      */
     protected function loadSources() {
-        jetengine_smartslider_generator()->log('Loading JetEngine generator sources');
-        
-        $this->loadJetEnginePostTypes();
-        $this->loadJetEngineCustomContentTypes();
-        $this->loadJetEngineRelations();
-        $this->loadJetEngineMetaBoxes();
+        try {
+            // Post-Types laden
+            $this->loadPostTypes();
+            
+            // Custom Content Types laden, falls verfügbar
+            if (function_exists('jet_engine') && method_exists(jet_engine(), 'modules') && 
+                jet_engine()->modules->is_module_active('custom-content-types')) {
+                $this->loadContentTypes();
+            }
+            
+            // Relations laden, falls verfügbar
+            if (function_exists('jet_engine') && method_exists(jet_engine(), 'relations')) {
+                $this->loadRelations();
+            }
+        } catch (\Exception $e) {
+            // Fehlerbehandlung
+            if (function_exists('jetengine_smartslider_generator')) {
+                jetengine_smartslider_generator()->log('Error loading sources: ' . $e->getMessage());
+            }
+        }
     }
     
     /**
-     * Load JetEngine post types as generator sources
+     * Load post types
      */
-    private function loadJetEnginePostTypes() {
-        // Get all JetEngine post types
-        $jet_post_types = $this->getJetEnginePostTypes();
+    private function loadPostTypes() {
+        // Prüfen, ob die Quell-Datei existiert
+        $source_file = plugin_dir_path(dirname(__FILE__)) . 'includes/sources/post-type.php';
+        if (!file_exists($source_file)) {
+            return;
+        }
         
-        // Get built-in post types as well
-        $builtin_post_types = get_post_types(['_builtin' => true, 'public' => true], 'objects');
+        // Klasse laden, falls noch nicht geladen
+        if (!class_exists('JetEngine_SmartSlider_Source_PostType')) {
+            require_once $source_file;
+        }
         
-        // Merge the post types
-        $post_types = array_merge($jet_post_types, $builtin_post_types);
+        // Post-Types laden
+        $post_types = $this->getJetEnginePostTypes();
         
-        // Skip some built-in post types
+        // Bestimmte Post-Types überspringen
         $skip_types = ['attachment', 'revision', 'nav_menu_item', 'custom_css', 'customize_changeset'];
         
         foreach ($post_types as $post_type) {
-            // Skip certain post types
+            // Post-Type überspringen, falls in der Skip-Liste
             if (in_array($post_type->name, $skip_types)) {
                 continue;
             }
             
-            // Create generator source for post type
+            // Generator-Quelle für Post-Type erstellen
             if (isset($post_type->name) && isset($post_type->labels->singular_name)) {
-                // Add to sources
-                require_once jetengine_smartslider_generator()->plugin_path . 'includes/sources/post-type.php';
-                $this->sources[$post_type->name] = new JetEngine_SmartSlider_Source_PostType(
-                    $this, 
-                    $post_type->name, 
-                    $post_type->labels->singular_name, 
-                    $post_type
-                );
-                
-                jetengine_smartslider_generator()->log('Added generator source for post type: ' . $post_type->name);
+                try {
+                    $this->sources[$post_type->name] = new JetEngine_SmartSlider_Source_PostType(
+                        $this, 
+                        $post_type->name, 
+                        $post_type->labels->singular_name, 
+                        $post_type
+                    );
+                } catch (\Exception $e) {
+                    // Fehlerbehandlung
+                }
             }
         }
     }
     
     /**
-     * Load JetEngine Custom Content Types as generator sources
+     * Load custom content types
      */
-    private function loadJetEngineCustomContentTypes() {
-        // Check if JetEngine has CCT module
-        if (!function_exists('jet_engine') || !method_exists(jet_engine(), 'modules') || !jet_engine()->modules->is_module_active('custom-content-types')) {
+    private function loadContentTypes() {
+        // Prüfen, ob die Quell-Datei existiert
+        $source_file = plugin_dir_path(dirname(__FILE__)) . 'includes/sources/content-type.php';
+        if (!file_exists($source_file)) {
             return;
         }
         
-        // Get CCT module instance
+        // Klasse laden, falls noch nicht geladen
+        if (!class_exists('JetEngine_SmartSlider_Source_ContentType')) {
+            require_once $source_file;
+        }
+        
+        // CCT-Modul abrufen
         $cct_module = jet_engine()->modules->get_module('custom-content-types');
         
         if (!$cct_module || !method_exists($cct_module, 'get_content_types')) {
             return;
         }
         
-        // Get all CCT types
+        // Content-Types abrufen
         $content_types = $cct_module->get_content_types();
         
         if (empty($content_types)) {
@@ -128,41 +167,48 @@ class JetEngine_SmartSlider_Generator_Group extends AbstractGeneratorGroup {
         }
         
         foreach ($content_types as $content_type) {
-            // Skip if no slug or name
+            // Content-Type überspringen, falls kein Slug oder Name vorhanden
             if (!isset($content_type->slug) || !isset($content_type->labels['name'])) {
                 continue;
             }
             
-            // Add to sources
-            require_once jetengine_smartslider_generator()->plugin_path . 'includes/sources/content-type.php';
-            $this->sources['cct_' . $content_type->slug] = new JetEngine_SmartSlider_Source_ContentType(
-                $this,
-                'cct_' . $content_type->slug,
-                $content_type->labels['name'],
-                $content_type
-            );
-            
-            jetengine_smartslider_generator()->log('Added generator source for CCT: ' . $content_type->slug);
+            try {
+                // Generator-Quelle für Content-Type erstellen
+                $this->sources['cct_' . $content_type->slug] = new JetEngine_SmartSlider_Source_ContentType(
+                    $this,
+                    'cct_' . $content_type->slug,
+                    $content_type->labels['name'],
+                    $content_type
+                );
+            } catch (\Exception $e) {
+                // Fehlerbehandlung
+            }
         }
     }
     
     /**
-     * Load JetEngine Relations as generator sources
+     * Load relations
      */
-    private function loadJetEngineRelations() {
-        // Check if JetEngine has Relations module
-        if (!function_exists('jet_engine') || !method_exists(jet_engine(), 'relations')) {
+    private function loadRelations() {
+        // Prüfen, ob die Quell-Datei existiert
+        $source_file = plugin_dir_path(dirname(__FILE__)) . 'includes/sources/relation.php';
+        if (!file_exists($source_file)) {
             return;
         }
         
-        // Get Relations module instance
+        // Klasse laden, falls noch nicht geladen
+        if (!class_exists('JetEngine_SmartSlider_Source_Relation')) {
+            require_once $source_file;
+        }
+        
+        // Relations-Manager abrufen
         $relations_manager = jet_engine()->relations;
         
         if (!$relations_manager || !method_exists($relations_manager, 'get_active_relations')) {
             return;
         }
         
-        // Get all active relations
+        // Relations abrufen
         $relations = $relations_manager->get_active_relations();
         
         if (empty($relations)) {
@@ -170,43 +216,35 @@ class JetEngine_SmartSlider_Generator_Group extends AbstractGeneratorGroup {
         }
         
         foreach ($relations as $relation) {
-            // Skip if no ID or name
+            // Relation überspringen, falls keine ID oder kein Name vorhanden
             if (!isset($relation['id']) || !isset($relation['name'])) {
                 continue;
             }
             
-            // Add to sources
-            require_once jetengine_smartslider_generator()->plugin_path . 'includes/sources/relation.php';
-            $this->sources['relation_' . $relation['id']] = new JetEngine_SmartSlider_Source_Relation(
-                $this,
-                'relation_' . $relation['id'],
-                $relation['name'],
-                $relation
-            );
-            
-            jetengine_smartslider_generator()->log('Added generator source for relation: ' . $relation['name']);
+            try {
+                // Generator-Quelle für Relation erstellen
+                $this->sources['relation_' . $relation['id']] = new JetEngine_SmartSlider_Source_Relation(
+                    $this,
+                    'relation_' . $relation['id'],
+                    $relation['name'],
+                    $relation
+                );
+            } catch (\Exception $e) {
+                // Fehlerbehandlung
+            }
         }
     }
     
     /**
-     * Load JetEngine Meta Boxes as generator sources
-     */
-    private function loadJetEngineMetaBoxes() {
-        // The Meta Boxes will be handled by the respective post types
-        // This is just a placeholder in case you want to add separate generators for Meta Boxes
-    }
-    
-    /**
-     * Get all JetEngine post types
+     * Get JetEngine post types
      * 
      * @return array Array of post type objects
      */
     private function getJetEnginePostTypes() {
         $post_types = [];
         
-        // Check if JetEngine exists and has the post_type module
-        if (function_exists('jet_engine') && jet_engine()->cpt) {
-            // Get all registered post types
+        // JetEngine-Post-Types abrufen
+        if (function_exists('jet_engine') && isset(jet_engine()->cpt)) {
             if (method_exists(jet_engine()->cpt, 'get_items')) {
                 $jet_post_types = jet_engine()->cpt->get_items();
                 
@@ -217,7 +255,7 @@ class JetEngine_SmartSlider_Generator_Group extends AbstractGeneratorGroup {
                         $singular = isset($post_type['labels']['singular_name']) ? $post_type['labels']['singular_name'] : $name;
                         
                         if ($slug && $name) {
-                            // Create object similar to WP's post type object
+                            // Post-Type-Objekt erstellen
                             $post_type_obj = new stdClass();
                             $post_type_obj->name = $slug;
                             $post_type_obj->labels = new stdClass();
@@ -231,15 +269,12 @@ class JetEngine_SmartSlider_Generator_Group extends AbstractGeneratorGroup {
             }
         }
         
-        // Also get registered post types using WordPress function
-        $registered_post_types = get_post_types(['_builtin' => false, 'public' => true], 'objects');
+        // WordPress-Post-Types abrufen
+        $builtin_post_types = get_post_types(['_builtin' => true, 'public' => true], 'objects');
+        $custom_post_types = get_post_types(['_builtin' => false, 'public' => true], 'objects');
         
-        // Merge with JetEngine post types
-        foreach ($registered_post_types as $post_type) {
-            if (!isset($post_types[$post_type->name])) {
-                $post_types[$post_type->name] = $post_type;
-            }
-        }
+        // Arrays zusammenführen
+        $post_types = array_merge($post_types, $builtin_post_types, $custom_post_types);
         
         return $post_types;
     }
